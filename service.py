@@ -1,19 +1,24 @@
 import re
 from db import get_connection
-from openai import OpenAI
-import os
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+from langchain.chat_models import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate
+from langchain.chains import LLMChain
 
 
-def extract_license(text):
+llm = ChatOpenAI(
+    model_name="gpt-5-chat-latest",
+    temperature=0
+)
+
+
+def extract_license(text: str):
     pattern = r"[A-Z]{2,3}-\d{4}"
     match = re.search(pattern, text.upper())
     return match.group() if match else None
 
 
-
-def get_vehicle_data(license_number):
+def get_vehicle_data(license_number: str):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -31,7 +36,6 @@ def get_vehicle_data(license_number):
 
     cursor.execute(query, (license_number,))
     result = cursor.fetchone()
-
     cursor.close()
     conn.close()
 
@@ -41,31 +45,31 @@ def get_vehicle_data(license_number):
     return {
         "license": result[0],
         "overall_status": result[3],
-        "owner_name": result[2],
+        "owner_name": result[2]
     }
 
 
-
-def generate_response(data):
+def generate_response(data: dict):
     if not data:
-        prompt = "No vehicle found. Ask the user politely to check the license number."
+        prompt_text = "No vehicle found. Ask the user politely to check the license number."
     else:
-        prompt = f"""
+        prompt_text = f"""
         You are an AutoGarage assistant who provides vehicle status.
 
         Vehicle Data:
         License: {data['license']}
         Status: {data['overall_status']}
-        Hello: {data['owner_name']}
-        Provide simple answer whether owner can pickup or not and if its done ready to pick up if its in progress 
-        provide simple progress statement and if its upcoming say its not even started to repair yet  
-    
-        Explain this clearly and in a friendly way.
+        Owner: {data['owner_name']}
+
+        Provide a simple answer whether the owner can pick up the vehicle or not.
+        If done, say 'ready to pick up', if in progress, provide a simple progress statement,
+        and if upcoming, say 'not even started to repair yet'.
+
+        Explain clearly in a friendly way.
         """
 
-    response = client.chat.completions.create(
-        model="gpt-5-chat-latest",
-        messages=[{"role": "user", "content": prompt}]
-    )
 
-    return response.choices[0].message.content
+    prompt = ChatPromptTemplate.from_template("{user_input}")
+    chain = LLMChain(llm=llm, prompt=prompt)
+    response = chain.run(user_input=prompt_text)
+    return response
