@@ -2,8 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-v0.111.0-green)](https://fastapi.tiangolo.com/)
-[![OpenAI](https://img.shields.io/badge/OpenAI-GPT-5-purple)](https://platform.openai.com/)
-[![License](https://img.shields.io/badge/license-MIT-orange)](LICENSE)
+ 
 
 A **LangChain-powered AI chatbot** that lets users check **vehicle status** by license number. The chatbot uses a **database-first approach** to fetch accurate vehicle details and **LangChain + OpenAI LLM** to generate friendly, human-readable responses.
 
