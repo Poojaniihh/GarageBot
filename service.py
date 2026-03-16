@@ -1,75 +1,84 @@
 import re
-from db import get_connection
+from typing import Optional, Dict, Any
 
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langchain.chains import LLMChain
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+
+from db import get_connection
 
 
 llm = ChatOpenAI(
-    model_name="gpt-5-chat-latest",
+    model="gpt-5-chat-latest",
     temperature=0
 )
 
-
-def extract_license(text: str):
+def extract_license(text: str) -> Optional[str]:
+    """Extracts vehicle license plate from text using regex."""
     pattern = r"[A-Z]{2,3}-\d{4}"
     match = re.search(pattern, text.upper())
     return match.group() if match else None
 
 
-def get_vehicle_data(license_number: str):
+def get_vehicle_data(license_number: str) -> Optional[Dict[str, Any]]:
+    """Fetches vehicle details from the database."""
     conn = get_connection()
-    cursor = conn.cursor()
+    try:
+        with conn.cursor() as cursor:
+            query = """
+                SELECT license_number, model, owner_name, overall_status
+                FROM vehicles 
+                WHERE license_number = %s;
+            """
+            cursor.execute(query, (license_number,))
+            result = cursor.fetchone()
 
-    query = """
-        SELECT 
-            v.license_number,
-            v.model,
-            v.owner_name,
-            v.overall_status,
-            v.completed_steps,
-            v.total_steps
-        FROM vehicles v
-        WHERE v.license_number = %s;
-    """
+            if not result:
+                return None
 
-    cursor.execute(query, (license_number,))
-    result = cursor.fetchone()
-    cursor.close()
-    conn.close()
-
-    if not result:
-        return None
-
-    return {
-        "license": result[0],
-        "overall_status": result[3],
-        "owner_name": result[2]
-    }
+            return {
+                "license": result[0],
+                "owner_name": result[2],
+                "overall_status": result[3]
+            }
+    finally:
+        conn.close()
 
 
-def generate_response(data: dict):
+def generate_response(data: Optional[dict]) -> str:
+    """Generates a friendly garage status update using LCEL."""
+
     if not data:
-        prompt_text = "No vehicle found. Ask the user politely to check the license number."
+
+        system_prompt = "You are a polite AutoGarage assistant."
+        user_content = "No vehicle found. Ask the user politely to check the license number."
     else:
-        prompt_text = f"""
-        You are an AutoGarage assistant who provides vehicle status.
-
+        system_prompt = "You are an AutoGarage assistant who provides vehicle status."
+        user_content = f"""
         Vehicle Data:
-        License: {data['license']}
-        Status: {data['overall_status']}
-        Owner: {data['owner_name']}
+        - License: {data['license']}
+        - Status: {data['overall_status']}
+        - Owner: {data['owner_name']}
 
-        Provide a simple answer whether the owner can pick up the vehicle or not.
-        If done, say 'ready to pick up', if in progress, provide a simple progress statement,
-        and if upcoming, say 'not even started to repair yet'.
+        Rules:
+        1. If status is 'done', say 'ready to pick up'.
+        2. If 'in progress', provide a simple progress statement.
+        3. If 'upcoming', say 'not even started to repair yet'.
 
-        Explain clearly in a friendly way.
+        Explain clearly and in a friendly way.
         """
 
 
-    prompt = ChatPromptTemplate.from_template("{user_input}")
-    chain = LLMChain(llm=llm, prompt=prompt)
-    response = chain.run(user_input=prompt_text)
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        ("human", "{input}")
+    ])
+
+
+    chain = prompt | llm | StrOutputParser()
+
+
+    response = chain.invoke({"input": user_content})
     return response
+
