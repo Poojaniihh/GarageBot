@@ -5,14 +5,14 @@ import os
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# 🔹 Extract license number
+
 def extract_license(text):
     pattern = r"[A-Z]{2,3}-\d{4}"
     match = re.search(pattern, text.upper())
     return match.group() if match else None
 
 
-# 🔹 Get vehicle data from MySQL
+
 def get_vehicle_data(license_number):
     conn = get_connection()
     cursor = conn.cursor()
@@ -45,7 +45,7 @@ def get_vehicle_data(license_number):
     }
 
 
-# 🔹 Generate response using LLM
+
 def generate_response(data):
     if not data:
         prompt = "No vehicle found. Ask the user politely to check the license number."
