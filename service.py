@@ -11,7 +11,6 @@ from db import get_connection
 
 llm = ChatOpenAI(
     model="gpt-5-chat-latest",
-    temperature=0
 )
 
 def extract_license(text: str) -> Optional[str]:
