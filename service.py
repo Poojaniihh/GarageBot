@@ -65,7 +65,7 @@ def generate_response(data: Optional[dict]) -> str:
         2. If 'in progress', provide a simple progress statement.
         3. If 'upcoming', say 'not even started to repair yet'.
 
-        Explain clearly and in a friendly way.
+        Explain clearly and in a friendly way and don't ask any question.
         """
 
 
